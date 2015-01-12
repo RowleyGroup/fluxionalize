@@ -192,8 +192,7 @@ def make_folder(folder_name):
         shutil.copy("conf_gbis/cluster0.0.pdb", folder_name+"/mol_gbis.pdb")
 
 #initial input, checks user input file name
-os.chdir('testfiles2')
-instring = "CC(CCC1=CC=C(O)C=C1)NCCC1=CC(O)=C(O)C=C1"
+os.chdir('testfiles')
 
 opts, args = getopt.getopt(sys.argv[1:], "io:")
 for opt, arg in opts:
@@ -206,9 +205,9 @@ for opt, arg in opts:
                 print("Made directory! %s")%outfile
         elif opt == '-i':
                 #for all
-                #instring = arg
-                #call_babel(instring)
-                #call_antechamber()
+                instring = arg
+                call_babel(instring)
+                call_antechamber()
                 call_psfgen()
                 rest_colvars()
 
@@ -218,32 +217,32 @@ for opt, arg in opts:
                 solvate_cmds()
                 make_xsc()
                 rest_vmd()
-                #calc_voltrend(reg_option)
+                calc_voltrend(reg_option)
                 call_namd(reg_option)
-                #namd_remd(reg_option, reg_file_extension)
-                #sort_replicas(reg_option)
-                #vmd_cluster(reg_option)
+                namd_remd(reg_option, reg_file_extension)
+                sort_replicas(reg_option)
+                vmd_cluster(reg_option)
 
                 #GBIS operations
                 gbis_file_extension = ""
                 gbis_option = "_gbis"
-                #call_namd(gbis_option)
-                #namd_remd(gbis_option, gbis_file_extension)
-                #sort_replicas(gbis_option)
-                #vmd_cluster(gbis_option)
+                call_namd(gbis_option)
+                namd_remd(gbis_option, gbis_file_extension)
+                sort_replicas(gbis_option)
+                vmd_cluster(gbis_option)
 
                 #gas phase operations
                 gas_file_extension = ""
                 gas_option = "_gas"
-                #call_namd(gas_option)
-                #namd_remd(gas_option, gas_file_extension)
-                #sort_replicas(gas_option)
-                #vmd_cluster(gas_option)
+                call_namd(gas_option)
+                namd_remd(gas_option, gas_file_extension)
+                sort_replicas(gas_option)
+                vmd_cluster(gas_option)
 
-                #calc_rmsd()
-                #make_folder(outfile)
+                calc_rmsd()
+                make_folder(outfile)
 
         else:
                 print("Not an option!!")
 
-print ("All done!")                                                                                                                                                                                  251,1         Bot
+print ("All done!")
