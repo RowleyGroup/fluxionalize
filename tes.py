@@ -1,32 +1,87 @@
 #!/usr/bin/python
-import shlex, subprocess, os, csv, fileinput, shutil, re, sys, getopt
+import subprocess, os, csv, shutil, re, sys, getopt, tarfile
 from itertools import izip
+from contextlib import closing
 
 #converts SMILES string to 3D structure .mol2 output
-def call_babel(smilestr):
-        command_line = 'obabel -:"'+ smilestr+'" -O mol.sdf --gen3d'
+def call_babel(file_type, input):
+        if file_type =='SMILES':
+                command_line = 'obabel -:"'+input+'" -O mol.pdb --gen3d --conformer --systematic --ff GAFF'
+        else:
+                command_line = 'obabel -i"'+file_type+' '+ input+'" -O mol.pdb --gen3d --conformer --systematic --ff GAFF'
         babelcmd=subprocess.Popen(command_line, stdout=subprocess.PIPE,stderr=subprocess.PIPE, shell=True)
         babelout, babelerr = babelcmd.communicate()
         if not re.match(r'^1 ', babelerr) :
                 print("Error with SMILES String: %s") %babelerr
                 return
 
-        confcmd = "obabel mol.sdf -O mol.mol2 --conformer --systematic --ff GAFF"
-        conf = subprocess.Popen(confcmd, shell=True).wait()
+#fixes pdb from call_babel
+def fix_pdb():
+        file_in = open('mol.pdb', 'r')
+        file_out = open('mol_fix.pdb', 'w')
+        charge=0
+        for line in file_in:
+                temp = line.split()
+                if (temp[0]== 'HETATM' or temp[0]=='ATOM'):
+                        temp[0]='ATOM'
+                        temp[2]=temp[2][0]
+                        temp[3]='UNK'
+                        if (len(temp))==11:
+                                temp.extend(['0'])
+                                temp[11]=temp[10]
+                                temp[10]=temp[9]
+                                temp[9]=temp[8]
+                                temp[8]=temp[7]
+                                temp[7]=temp[6]
+                                temp[6]=temp[5]
+
+                        temp[5]='0'
+                        file_out.write('{0:>4}  {1:>5}  {2:<4}{3:>3} {4:>1}{5:>4}      {6:>6}{7:>8}{8:>8}{9:>6}{10:>6}          {11:>2}{12:>1}\n'.format(temp[0],temp[1],temp[2],temp[3],temp[4],temp[5],temp[6],
+                                        temp[7],temp[8],temp[9],temp[10],temp[11][0], temp[11][1:]))
+                        charge=charge+temp[11].count('+')
+                        charge=charge-temp[11].count('-')
+                else:
+                        file_out.write(line)
+        file_out.close()
+        file_in.close()
+        print(charge)
+        return(charge)
 
 #generates charmm readable files
-def call_antechamber():
+def call_antechamber(netcharge):
         find_amber = subprocess.Popen("which antechamber", stdout=subprocess.PIPE,stderr=subprocess.PIPE, shell=True)
         antechmbr, err= find_amber.communicate()
-        antecmd = antechmbr.strip()+ " -fi mol2 -i mol.mol2 -fo charmm -o mol -c bcc"
+        antecmd = antechmbr.strip()+ " -fi pdb -i mol_fix.pdb -fo charmm -o mol -c bcc -nc "+str(netcharge)
         ante = subprocess.Popen(antecmd, shell=True).wait()
-        ant_pdbcmd = antechmbr.strip()+" -fi mol2 -i mol.mol2 -fo pdb -o mol.pdb -rn MOL"
+        ant_pdbcmd = antechmbr.strip()+" -fi pdb -i mol_fix.pdb -fo pdb -o molnew.pdb -rn MOL "+str(netcharge)
         ant_pdb = subprocess.Popen(ant_pdbcmd, shell=True).wait()
+
+#modifies prm to add LJ potential to hydrogens lacking it
+def fix_prm():
+        file_in = open('mol.prm', 'r')
+        file_out = open('mol_fix.prm', 'w')
+        for line in file_in:
+                temp=line.split()
+                if(len(temp)==7 and temp[2]=='-0.0000'):
+                        temp[2]='-0.0157'
+                        temp[3]='1.3870'
+                        temp[5]='-0.0078'
+                        temp[6]='1.3870'
+                        file_out.write('{0:>2}      {1:>4}   {2:>7}    {3:>6}      {4:>4}   {5:>7}    {6:>6}\n'.format(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5], temp[6]))
+
+                else:
+                        file_out.write(line)
+        file_in.close()
+        file_out.close()
+        shutil.copy("mol_fix.prm", "mol.prm")
+        os.remove("mol_fix.prm")
+
 
 #calls vmd's psfgen to generate psf and pdb files
 def call_psfgen():
         file_out = open ('mol_psfgen.pgn', 'w')
-        file_out.write("package require psfgen\ntopology mol.inp\ntopology mol.rtf\nsegment MOL {pdb mol.pdb}\ncoordpdb mol.pdb MOL\nguesscord\nwritepdb mol.pdb\nwritepsf mol.psf\nquit vmd")
+        file_out.write("package require psfgen\npackage require autoionize\ntopology mol.inp\ntopology mol.rtf\nsegment MOL {pdb molnew.pdb}\ncoordpdb molnew.pdb MOL\nguesscord\nwritepdb mol.pdb\n"+
+                        "writepsf mol.psf\nautoionize -psf mol.psf -pdb mol.pdb -neutralize -o mol\nquit vmd")
         file_out.close()
         psf_cmds = "vmd -dispdev text -eofexit <mol_psfgen.pgn> temp.out 2>temp-error.out"
         psf=subprocess.Popen(psf_cmds, shell=True).wait()
@@ -72,9 +127,16 @@ def rest_colvars():
 
         file_out.close()
 
-#calls namd
-def call_namd(option):
-        namd_cmds = "namd2 mol"+option+".namd >mol"+option+".out"
+#calls namd for reg
+def call_namd_exp(option, num_processors):
+        namd_cmds = "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 mol"+option+"-nvt.namd >mol"+option+"-nvt.out"
+        namd=subprocess.Popen(namd_cmds, shell=True).wait()
+        namd_cmds = "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 mol"+option+"-npt.namd >mol"+option+"-npt.out"
+        namd=subprocess.Popen(namd_cmds, shell=True).wait()
+
+#calls namd for gbis, and gas
+def call_namd(option, num_processors):
+        namd_cmds = "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 mol"+option+".namd >mol"+option+".out"
         namd=subprocess.Popen(namd_cmds, shell=True).wait()
 
 #extracts volume and potential energy from namd.out file to mol_vol.txt
@@ -95,7 +157,7 @@ def calc_voltrend(option):
         writer.writerows(izip(count,vol, pot))
         file_in.close()
         file_out.close()
-
+        
         graph_trends("pe"+option, option)
         graph_trends("vol"+option, option)
 
@@ -116,9 +178,9 @@ def graph_trends(title, option):
         gnuplot=subprocess.Popen(gnuplot_cmds, shell = True).wait()
 
 #performs REMD using user input for number of replicas and number of runs, output folder dynamically generated
-def namd_remd(option, file_extension):
+def namd_remd(option, file_extension,pdb_extension, num_processors):
         num_reps = "24"
-        num_runs = "1000"
+        num_runs = "10000"
 
         folder_out = 'output'+option
         if os.path.exists(folder_out):
@@ -133,10 +195,10 @@ def namd_remd(option, file_extension):
         job_out.close()
         conf_out = open('mol_rep'+option+'.conf', 'w')
         conf_out.write('set num_replicas '+num_reps+'\nset min_temp 298\nset max_temp 500\nset steps_per_run 1000\nset num_runs '+num_runs+'\n\nset runs_per_frame 1\nset frames_per_restart 1\n'+
-                        'set namd_config_file "mol_rep'+option+'.namd"\nset output_root "'+folder_out+'/%s/mol";\n\nset psf_file "mol'+file_extension+'.psf"\nset pdb_file "molref.pdb"')
+                        'set namd_config_file "mol_rep'+option+'.namd"\nset output_root "'+folder_out+'/%s/mol";\n\nset psf_file "mol'+file_extension+'.psf"\nset pdb_file "mol'+pdb_extension+'.pdb"')
         conf_out.close()
 
-        remd_cmds =  "charmrun namd2 +p"+num_reps+" +replicas "+num_reps+" job"+option+".conf +stdout "+folder_out+"/%d/job0.%d.log >&job"+option+".out"
+        remd_cmds =  "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 +replicas "+num_reps+" job"+option+".conf +stdout "+folder_out+"/%d/job0.%d.log >&job"+option+".out"
 
         remd=subprocess.Popen(remd_cmds, shell=True).wait()
 
@@ -175,6 +237,13 @@ def vmd_cluster(option):
         rmsd_cmds ="gnuplot>load 'mol_rmsdtt"+option+".p'"
         rmsd_plot=subprocess.Popen(rmsd_cmds, shell=True).wait()
 
+#calls catdcd to make clusters
+def make_clusters(option):
+        for i in range(4):
+                for j in range(6):
+                        cat_cmds = "./catdcd/catdcd -o clusters"+option+"/cluster"+str(i)+"."+str(j)+".dcd  -f clust"+str(i)+"."+str(j)+".txt output"+option+"/"+str(i)+"/mol.job0."+str(i)+".dcd"
+                        cat=subprocess.Popen(cat_cmds, shell=True).wait()
+
 #determines RMSD of explict versus gas and gbis
 def calc_rmsd():
         all_rmsd_in = open('mol_rmsd_all.tcl', 'w')
@@ -186,61 +255,82 @@ def calc_rmsd():
         all_rmsd=subprocess.Popen(all_rmsd_cmds, shell=True).wait()
 
 #moves significant documents to output folder
-def make_folder(folder_name):
+def make_folder(out_dir, folder_name):
+        if os.path.exists(folder_name):
+                shutil.rmtree(folder_name)
+        os.makedirs(folder_name)
         shutil.copy("conf/cluster0.0.pdb", folder_name+"/mol_reg.pdb")
         shutil.copy("conf_gas/cluster0.0.pdb", folder_name+"/mol_gas.pdb")
         shutil.copy("conf_gbis/cluster0.0.pdb", folder_name+"/mol_gbis.pdb")
+        shutil.copy("mol_rmsd_all.dat", folder_name+"/mol_rmsd_all.dat")
+        
+        os.chdir("../")
+        with closing(tarfile.open(out_dir+".tar.gz", "w:gz")) as tar:
+                tar.add(out_dir, arcname=os.path.basename(out_dir))
+        shutil.rmtree(out_dir)
 
 #initial input, checks user input file name
-os.chdir('testfiles')
-
-opts, args = getopt.getopt(sys.argv[1:], "io:")
+opts, args = getopt.getopt(sys.argv[1:], "n:i:")
 for opt, arg in opts:
-        if opt == '-o':
-                outfile = "../"+arg
+        if opt =='-n':
+                numprocs=arg
+                print(arg)
+        elif opt == '-i':
+                in_line=arg.split()
+                in_type=in_line[0]
+                instring=in_line[1]
+                outfile=in_line[2]
                 if os.path.exists(outfile):
                         print("Folder %s exists!")%outfile
-                        shutil.rmtree(outfile)
-                os.mkdir(outfile)
+                       #        shutil.rmtree(outfile)
+                #shutil.copytree("src_files", outfile)
+                os.chdir(outfile)
                 print("Made directory! %s")%outfile
-        elif opt == '-i':
+
                 #for all
-                instring = arg
-                call_babel(instring)
-                call_antechamber()
-                call_psfgen()
-                rest_colvars()
+                #call_babel(in_type,instring)
+                #netcharge=fix_pdb()
+                #call_antechamber(netcharge)
+                #fix_prm()
+                #call_psfgen()
+                #rest_colvars()
 
                 #regular operations
                 reg_file_extension = "_wb"
                 reg_option = ""
+                reg_pdb_ext="ref"
                 solvate_cmds()
-                make_xsc()
-                rest_vmd()
-                calc_voltrend(reg_option)
-                call_namd(reg_option)
-                namd_remd(reg_option, reg_file_extension)
-                sort_replicas(reg_option)
-                vmd_cluster(reg_option)
+                #make_xsc()
+                #rest_vmd()
+                #call_namd_exp(reg_option, numprocs)
+                #calc_voltrend("-npt")
+                #namd_remd(reg_option, reg_file_extension,reg_pdb_ext, numprocs)
+                #sort_replicas(reg_option)
+                #vmd_cluster(reg_option)
+                make_clusters(reg_option)
 
                 #GBIS operations
                 gbis_file_extension = ""
                 gbis_option = "_gbis"
-                call_namd(gbis_option)
-                namd_remd(gbis_option, gbis_file_extension)
-                sort_replicas(gbis_option)
-                vmd_cluster(gbis_option)
+                gbis_pdb_ext=""
+                #call_namd(gbis_option, numprocs)
+                #namd_remd(gbis_option, gbis_file_extension,gbis_pdb_ext, numprocs)
+                #sort_replicas(gbis_option)
+                #vmd_cluster(gbis_option)
+                make_clusters(gbis_option)
 
                 #gas phase operations
                 gas_file_extension = ""
                 gas_option = "_gas"
-                call_namd(gas_option)
-                namd_remd(gas_option, gas_file_extension)
-                sort_replicas(gas_option)
+                gas_pdb_ext=""
+                #call_namd(gas_option, numprocs)
+                #namd_remd(gas_option, gas_file_extension,gas_pdb_ext, numprocs)
+                #sort_replicas(gas_option)
                 vmd_cluster(gas_option)
+                make_clusters(gas_option)
 
                 calc_rmsd()
-                make_folder(outfile)
+                make_folder(outfile,"../"+outfile+"_out")
 
         else:
                 print("Not an option!!")
