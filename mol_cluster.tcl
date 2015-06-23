@@ -1,7 +1,6 @@
 #! /usr/bin/tclsh
 
 set psf "mol_wb.psf"
-set catdcd [exec sh -c {locate -r "LINUXAMD64/bin/catdcd[0-9].[0-9]/catdcd$"}]
 set outfile [open mol_cluster.dat w]
 set outfil2 [open mol_rmsdtt.dat w]
 set w1 7
@@ -11,7 +10,6 @@ for {set j 0} {$j <= 3} {incr j} {
  set dcd "output/$j/mol.job0.$j.dcd"
  mol load psf $psf dcd $dcd
  set nf [molinfo top get numframes]
- puts $nf
  set frame0 [atomselect top "not water" frame 0]
  set sel [atomselect top "not water"]
  append title [format "%-*s" $w2 "mol$j"]
@@ -26,22 +24,15 @@ for {set j 0} {$j <= 3} {incr j} {
  puts $outfile $clust
  set h 0
  foreach cluster $clust {
-   set k 0
+   set outclust [open clust$j.$h.txt w]
    foreach frame $cluster {
-    animate write dcd temp$k.dcd beg $frame end $frame sel $sel waitfor all top
-    incr k
+    puts $outclust $frame
     }
-   set lf [llength $cluster]
-   for {set l 0} {$l < [expr $lf-1]} {incr l} {
-    set m [expr $l+1]
-    exec $catdcd -o temp.dcd temp$l.dcd temp$m.dcd
-    exec mv temp.dcd temp$m.dcd
-    exec rm temp$l.dcd
   }
-   exec mv temp$m.dcd clusters/cluster$j.$h.dcd
-   incr h
+  exec ./catdcd -o clusters/cluster$j.$h.dcd  -f $outclust $dcd
+  incr h
+  close $outclust
  }
-}
 puts $outfil2 $title
 for {set h 1} {$h <=$nf} {incr h} {
  set newline [format "%-*s" $w1 $h]
@@ -51,3 +42,4 @@ close $outfile
 close $outfil2
 exit
 EOF
+
