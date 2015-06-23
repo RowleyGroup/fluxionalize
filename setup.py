@@ -1,50 +1,42 @@
-#!/usr/bin/python
-import os, sys
+import sys, getopt, os, subprocess
 
-#sets up system
-def set_up(config_file):
-        set_path = open('set.sh', 'w')
-        set_path.write("#!/bin/bash\n")
-        if config_file:
-                if not os.path.exists(config_file):
-                        print("Invalid config file!")
-                        return 0
+#write test.sh and send it to queue
+def write_sh():
+        location = os.getcwd()
+        name_spec=False
+        num_procs='2'
+        opts, args = getopt.getopt(sys.argv[1:], "p:n:l:i:")
+        for opt, arg in opts:
+                if opt=='-p':
+                        num_procs=arg
+                elif opt=='-n':
+                        name=arg
+                        name_spec=True
+                elif opt=='-l':
+                        if os.path.exists(arg)and os.access(arg, os.X_OK):
+                                location=arg
+                elif opt=='-i':
+                        input = arg
+                        file_formats=['.mol','.mdl','.sdf','.sd','.pdb','.ent','.ml2','.sy2','.mol2','.xml','.dat','.output','.out','.log','.xyz','.arc','.car','.msi','.pc','.pos','.g09','.g03','.g98','.g94',
+                                        '.g92','.gal','.gzmat','.mpo','.xsf','.cdx']
 
-                config = open(config_file, 'r')
-                for line in config:
-                        prog = line.split()
-                        if is_exe(prog[1]):
-                                set_path.write('export PATH='+prog[1]+':$PATH\n')
-                                print("is executable!")
-        else:
-                if not path_finder("obabel"):
-                        print("Open Babel not found!")
-                if not path_finder("antechamber"):
-                        print("Antechamber not found!")
-                vmd_path=path_finder("vmd")
-                if not vmd_path:
-                        print("VMD not found!")
-                elif vmd_path:
-                        if not path_finder("catdcd"):
-                                set_path.write('export PATH='+vmd_path[:-9]+'/vmd-1.9.1/plugins/LINUXAMD64/bin/catdcd4.0:$PATH')
-                if not path_finder("namd2"):
-                        print("NAMD not found!")
-        set_path.close()
+                        file_name, file_ext=os.path.splitext(input)
 
-#checks if executables in path, adds them if they're not there
-def path_finder(program):
-        for path in os.environ["PATH"].split(os.pathsep):
-                path = path.strip('"')
-                exe_file = os.path.join(path, program)
-                if is_exe(exe_file):
-                        print ("Executable in PATH as %s!")%exe_file
-                        return exe_file
-        return 0
+                        if not any (file_ext in type for type in file_formats):
+                                print("File type %s may not be supported.") %file_ext
+                        if file_ext=="":
+                                file_ext='.SMILES'
 
-#checks if given path is an existing executable file
-def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+        if name_spec==False:
+                name = file_name
+        file_out=open('test3.sh', 'w')
+        file_out.write('#PBS -l walltime=120:00:00\n#PBS -l nodes='+num_procs+'\n#PBS -N '+name+'\n#PBS -o '+name+'.out\n#PBS -j oe\n\ncd '+location+'\n\n'
+                        +'module load openbabel\nmodule load intel64/14.0.0.080\nmodule load openmpi_intel64/1.6.5_intel14\nmodule load amber\nmodule load vmd64\nmodule load namd/2.10\n\n'
+                        +'python tes.py -n $[PBS_NUM_NODES*24] -i "'+file_ext[1:]+' '+input+' '+name+'"\n')
+        file_out.close()
 
-infile = sys.argv[1]
 
-set_up(infile)
+write_sh()
+submit = subprocess.Popen("qsub test3.sh", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+submitout, submiterr = submit.communicate()
+print("Job submitted to queue as: "+submitout+"\n")
