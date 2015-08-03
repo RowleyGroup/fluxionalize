@@ -5,10 +5,13 @@ def write_sh():
         location = os.getcwd()
         name_spec=False
         num_procs='2'
-        opts, args = getopt.getopt(sys.argv[1:], "p:n:l:i:")
+        num_clusters='1'
+        opts, args = getopt.getopt(sys.argv[1:], "p:n:l:i:c:")
         for opt, arg in opts:
                 if opt=='-p':
                         num_procs=arg
+                elif opt=='-c':
+                        num_clusters=arg
                 elif opt=='-n':
                         name=arg
                         name_spec=True
@@ -32,7 +35,7 @@ def write_sh():
         file_out=open('test3.sh', 'w')
         file_out.write('#PBS -l walltime=120:00:00\n#PBS -l nodes='+num_procs+'\n#PBS -N '+name+'\n#PBS -o '+name+'.out\n#PBS -j oe\n\ncd '+location+'\n\n'
                         +'module load openbabel\nmodule load intel64/14.0.0.080\nmodule load openmpi_intel64/1.6.5_intel14\nmodule load amber\nmodule load vmd64\nmodule load namd/2.10\n\n'
-                        +'python tes.py -n $[PBS_NUM_NODES*24] -i "'+file_ext[1:]+' '+input+' '+name+'"\n')
+                        +'python tes.py -n $[PBS_NUM_NODES*24] -c '+num_clusters+' -i "'+file_ext[1:]+' '+input+' '+name+'"\n')
         file_out.close()
 
 
