@@ -40,6 +40,6 @@ def write_sh():
 
 
 write_sh()
-submit = subprocess.Popen("qsub test3.sh", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+submit = subprocess.Popen("qsub "+name+".sh", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
 submitout, submiterr = submit.communicate()
 print("Job submitted to queue as: "+submitout+"\n")
