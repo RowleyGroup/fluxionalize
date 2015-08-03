@@ -1,6 +1,10 @@
 #! /usr/bin/tclsh
 
 set psf "mol_wb.psf"
+#set vmdloc "[exec whereis vmd]"
+#set catdcd "[string range $vmdloc 5 [string length $vmdloc]]-1.9/plugins/LINUXAMD64/bin/catdcd4.0/catdcd"
+#puts $catdcd
+set catdcd "/home/rowley_group/lib/vmd/plugins/LINUXAMD64/bin/catdcd5.1/catdcd"
 set outfile [open mol_cluster.dat w]
 set outfil2 [open mol_rmsdtt.dat w]
 set w1 7
@@ -24,15 +28,22 @@ for {set j 0} {$j <= 3} {incr j} {
  puts $outfile $clust
  set h 0
  foreach cluster $clust {
-   set outclust [open clust$j.$h.txt w]
+   set k 0
    foreach frame $cluster {
-    puts $outclust $frame
+    animate write dcd temp$k.dcd beg $frame end $frame sel $sel waitfor all top
+    incr k
     }
+   set nf [llength $cluster]
+   for {set l 0} {$l < [expr $nf-1]} {incr l} {
+    set m [expr $l+1]
+    exec $catdcd -o temp.dcd temp$l.dcd temp$m.dcd
+    exec mv temp.dcd temp$m.dcd
+    exec rm temp$l.dcd
   }
-  exec ./catdcd -o clusters/cluster$j.$h.dcd  -f $outclust $dcd
+  exec mv temp$m.dcd clusters/cluster$j.$h.dcd
   incr h
-  close $outclust
  }
+}
 puts $outfil2 $title
 for {set h 1} {$h <=$nf} {incr h} {
  set newline [format "%-*s" $w1 $h]
@@ -42,4 +53,3 @@ close $outfile
 close $outfil2
 exit
 EOF
-
