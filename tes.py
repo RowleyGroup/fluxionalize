@@ -157,7 +157,7 @@ def calc_voltrend(option):
         writer.writerows(izip(count,vol, pot))
         file_in.close()
         file_out.close()
-        
+
         graph_trends("pe"+option, option)
         graph_trends("vol"+option, option)
 
@@ -237,13 +237,6 @@ def vmd_cluster(option):
         rmsd_cmds ="gnuplot>load 'mol_rmsdtt"+option+".p'"
         rmsd_plot=subprocess.Popen(rmsd_cmds, shell=True).wait()
 
-#calls catdcd to make clusters
-def make_clusters(option):
-        for i in range(4):
-                for j in range(6):
-                        cat_cmds = "./catdcd/catdcd -o clusters"+option+"/cluster"+str(i)+"."+str(j)+".dcd  -f clust"+str(i)+"."+str(j)+".txt output"+option+"/"+str(i)+"/mol.job0."+str(i)+".dcd"
-                        cat=subprocess.Popen(cat_cmds, shell=True).wait()
-
 #determines RMSD of explict versus gas and gbis
 def calc_rmsd():
         all_rmsd_in = open('mol_rmsd_all.tcl', 'w')
@@ -255,26 +248,29 @@ def calc_rmsd():
         all_rmsd=subprocess.Popen(all_rmsd_cmds, shell=True).wait()
 
 #moves significant documents to output folder
-def make_folder(out_dir, folder_name):
+def make_folder(out_dir, folder_name,num_clusters):
         if os.path.exists(folder_name):
                 shutil.rmtree(folder_name)
         os.makedirs(folder_name)
-        shutil.copy("conf/cluster0.0.pdb", folder_name+"/mol_reg.pdb")
-        shutil.copy("conf_gas/cluster0.0.pdb", folder_name+"/mol_gas.pdb")
-        shutil.copy("conf_gbis/cluster0.0.pdb", folder_name+"/mol_gbis.pdb")
+        for i in xrange(int(num_clusters)):
+                shutil.copy("conf/cluster0."+str(i)+".pdb", folder_name+"/mol_reg."+str(i)+".pdb")
+                shutil.copy("conf_gas/cluster0."+str(i)+".pdb", folder_name+"/mol_gas."+str(i)+".pdb")
+                shutil.copy("conf_gbis/cluster0."+str(i)+".pdb", folder_name+"/mol_gbis."+str(i)+".pdb")
         shutil.copy("mol_rmsd_all.dat", folder_name+"/mol_rmsd_all.dat")
-        
+
         os.chdir("../")
         with closing(tarfile.open(out_dir+".tar.gz", "w:gz")) as tar:
                 tar.add(out_dir, arcname=os.path.basename(out_dir))
         shutil.rmtree(out_dir)
 
 #initial input, checks user input file name
-opts, args = getopt.getopt(sys.argv[1:], "n:i:")
+opts, args = getopt.getopt(sys.argv[1:], "n:i:c:")
 for opt, arg in opts:
         if opt =='-n':
                 numprocs=arg
                 print(arg)
+        elif opt =='-c':
+                clusters_out=arg
         elif opt == '-i':
                 in_line=arg.split()
                 in_type=in_line[0]
@@ -282,55 +278,52 @@ for opt, arg in opts:
                 outfile=in_line[2]
                 if os.path.exists(outfile):
                         print("Folder %s exists!")%outfile
-                       #        shutil.rmtree(outfile)
-                #shutil.copytree("src_files", outfile)
+                        shutil.rmtree(outfile)
+                shutil.copytree("src_files", outfile)
                 os.chdir(outfile)
                 print("Made directory! %s")%outfile
 
                 #for all
-                #call_babel(in_type,instring)
-                #netcharge=fix_pdb()
-                #call_antechamber(netcharge)
-                #fix_prm()
-                #call_psfgen()
-                #rest_colvars()
+                call_babel(in_type,instring)
+                netcharge=fix_pdb()
+                call_antechamber(netcharge)
+                fix_prm()
+                call_psfgen()
+                rest_colvars()
 
                 #regular operations
                 reg_file_extension = "_wb"
                 reg_option = ""
                 reg_pdb_ext="ref"
                 solvate_cmds()
-                #make_xsc()
-                #rest_vmd()
-                #call_namd_exp(reg_option, numprocs)
+                make_xsc()
+                rest_vmd()
+                call_namd_exp(reg_option, numprocs)
                 #calc_voltrend("-npt")
-                #namd_remd(reg_option, reg_file_extension,reg_pdb_ext, numprocs)
-                #sort_replicas(reg_option)
-                #vmd_cluster(reg_option)
-                make_clusters(reg_option)
+                namd_remd(reg_option, reg_file_extension,reg_pdb_ext, numprocs)
+                sort_replicas(reg_option)
+                vmd_cluster(reg_option)
 
                 #GBIS operations
                 gbis_file_extension = ""
                 gbis_option = "_gbis"
                 gbis_pdb_ext=""
-                #call_namd(gbis_option, numprocs)
-                #namd_remd(gbis_option, gbis_file_extension,gbis_pdb_ext, numprocs)
-                #sort_replicas(gbis_option)
-                #vmd_cluster(gbis_option)
-                make_clusters(gbis_option)
+                call_namd(gbis_option, numprocs)
+                namd_remd(gbis_option, gbis_file_extension,gbis_pdb_ext, numprocs)
+                sort_replicas(gbis_option)
+                vmd_cluster(gbis_option)
 
                 #gas phase operations
                 gas_file_extension = ""
                 gas_option = "_gas"
                 gas_pdb_ext=""
-                #call_namd(gas_option, numprocs)
-                #namd_remd(gas_option, gas_file_extension,gas_pdb_ext, numprocs)
-                #sort_replicas(gas_option)
+                call_namd(gas_option, numprocs)
+                namd_remd(gas_option, gas_file_extension,gas_pdb_ext, numprocs)
+                sort_replicas(gas_option)
                 vmd_cluster(gas_option)
-                make_clusters(gas_option)
 
                 calc_rmsd()
-                make_folder(outfile,"../"+outfile+"_out")
+                make_folder(outfile,"../"+outfile+"_out", clusters_out)
 
         else:
                 print("Not an option!!")
