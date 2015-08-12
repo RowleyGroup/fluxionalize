@@ -139,44 +139,6 @@ def call_namd(option, num_processors):
         namd_cmds = "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 mol"+option+".namd >mol"+option+".out"
         namd=subprocess.Popen(namd_cmds, shell=True).wait()
 
-#extracts volume and potential energy from namd.out file to mol_vol.txt
-def calc_voltrend(option):
-        file_in = open('mol'+option+'.out', 'r')
-        file_out = open('mol'+option+'_namd.txt', 'w')
-        vol = ['VOLUME']
-        pot = ['POTENTIAL ENERGY']
-        count = ['TIMESTEPS']
-
-        for line in file_in:
-                if line.startswith("ENERGY"):
-                        energy = line.split()
-                        vol.append(energy[18])
-                        pot.append(energy[13])
-                        count.append(energy[1])
-        writer=csv.writer(file_out)
-        writer.writerows(izip(count,vol, pot))
-        file_in.close()
-        file_out.close()
-
-        graph_trends("pe"+option, option)
-        graph_trends("vol"+option, option)
-
-#creates graphs of Potential Energy vs Timesteps and Volume vs. Timesteps
-def graph_trends(title, option):
-        graph_out= open ('mol_'+title+'.p', 'w')
-        if re.match(r'^pe', title):
-                graph_out.write('set title "Potential Energy vs. Time Steps"\nset datafile separator ","\nset xlabel "Timesteps"\nset ylabel "Potential Energy"\nunset key\n'
-                                +'set autoscale\nset terminal png size 800,600 enhanced font "Helvetica,10"\nset output "mol_'+title+'.png"\nplot "mol'+option+'_namd.txt" using 1:3 with lines\nexit')
-        elif re.match(r'^vol', title):
-                graph_out.write('set title "Volume vs. Time Steps"\nset datafile separator ","\nset xlabel "Timesteps"\nset ylabel "Volume"\nunset key\n'
-                                +'set autoscale\nset terminal png size 800,600 enhanced font "Helvetica,10"\nset output "mol_'+title+'.png"\nplot "mol'+option+'_namd.txt" using 1:2 with lines\nexit')
-        else:
-                print("Error!")
-        graph_out.close()
-
-        gnuplot_cmds = "gnuplot>load 'mol_'"+title+"'.p'"
-        gnuplot=subprocess.Popen(gnuplot_cmds, shell = True).wait()
-
 #performs REMD using user input for number of replicas and number of runs, output folder dynamically generated
 def namd_remd(option, file_extension,pdb_extension, num_processors):
         num_reps = "24"
@@ -299,7 +261,6 @@ for opt, arg in opts:
                 make_xsc()
                 rest_vmd()
                 call_namd_exp(reg_option, numprocs)
-                #calc_voltrend("-npt")
                 namd_remd(reg_option, reg_file_extension,reg_pdb_ext, numprocs)
                 sort_replicas(reg_option)
                 vmd_cluster(reg_option)
