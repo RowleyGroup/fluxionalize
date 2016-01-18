@@ -13,11 +13,11 @@ for {set j 0} {$j <= 3} {incr j} {
  set dcd "output/$j/mol.job0.$j.dcd"
  mol load psf $psf dcd $dcd
  set nf [molinfo top get numframes]
- set frame0 [atomselect top "not water" frame 0]
+ set frame0 [atomselect top "not water" frame 1000]
  set sel [atomselect top "not water"]
  append title [format "%-*s" $w2 "mol$j"]
-#measures RMSD for each frame aligning to frame 0
- for {set i 0} {$i <= $nf} {incr i} {
+#measures RMSD for each frame aligning to frame 1000
+ for {set i 1000} {$i <= $nf} {incr i} {
   $sel frame $i
   $sel move [measure fit $sel $frame0]
   append outline($i) [format "%-*s" $w2 "[measure rmsd $sel $frame0]"]
