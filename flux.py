@@ -80,8 +80,17 @@ def fix_prm():
 #calls vmd's psfgen to generate psf and pdb files
 def call_psfgen():
         file_out = open ('mol_psfgen.pgn', 'w')
-        file_out.write("package require psfgen\npackage require autoionize\ntopology mol.inp\ntopology mol.rtf\nsegment MOL {pdb molnew.pdb}\ncoordpdb molnew.pdb MOL\nguesscord\nwritepdb mol.pdb\n"+
-                        "writepsf mol.psf\nautoionize -psf mol.psf -pdb mol.pdb -neutralize -o mol\nquit vmd")
+        file_out.write("package require psfgen\n")
+        file_out.write("package require autoionize\n")
+        file_out.write("topology mol.inp\n") 
+        file_out.write("topology mol.rtf\n")     
+        file_out.write("segment MOL {pdb molnew.pdb}\n") 
+        file_out.write("coordpdb molnew.pdb MOL\n")
+        file_out.write("guesscord\n")
+        file_out.write("writepdb mol.pdb\n")
+        file_out.write("writepsf mol.psf\n")
+        file_out.write("autoionize -psf mol.psf -pdb mol.pdb -neutralize -o mol\n")
+        file_out.write("quit vmd")
         file_out.close()
         psf_cmds = "vmd -dispdev text -eofexit <mol_psfgen.pgn> temp.out 2>temp-error.out"
         psf=subprocess.Popen(psf_cmds, shell=True).wait()
@@ -89,7 +98,9 @@ def call_psfgen():
 #calls VMD to add solvation box
 def solvate_cmds():
         file_out = open('mol_solvate.tcl', 'w')
-        file_out.write("package require solvate\nsolvate mol.psf mol.pdb -t 10 -o mol_wb\nquit vmd")
+        file_out.write("package require solvate\n")
+        file_out.write("solvate mol.psf mol.pdb -t 10 -o mol_wb\n")
+        file_out.write("quit vmd")
         file_out.close()
 
         solv_cmds = "vmd -dispdev text -eofexit <mol_solvate.tcl> temp.out 2> temp-error.out"
@@ -104,16 +115,22 @@ def make_xsc():
                 if line.startswith("CRYST1"):
                         size = line[9:15]
 
-        file_out.write("#NAMD extended system configuration restart file\n#$LABELS step a_x a_y a_z b_x b_y b_z c_x c_y c_z o_x o_y o_z s_x s_y s_z s_u s_v s_w\n"
-                        + "0 "+size+ " 0 0 0 "+size+ " 0 0 0 "+size+ " 0 0 0 0 0 0 0 0 0)")
+        file_out.write("#NAMD extended system configuration restart file\n")
+        file_out.write("#$LABELS step a_x a_y a_z b_x b_y b_z c_x c_y c_z o_x o_y o_z s_x s_y s_z s_u s_v s_w\n")  
+        file_out.write("0 "+size+ " 0 0 0 "+size+ " 0 0 0 "+size+ " 0 0 0 0 0 0 0 0 0)")                
         file_in.close()
         file_out.close()
 
 #edit pdb to restrain center of mass
 def rest_vmd():
         file_out = open('mol_rest.tcl', 'w')
-        file_out.write('mol addfile mol_wb.pdb\nset selall [atomselect top "all"]\nset selsolute [atomselect top "segid MOL"]\n$selall set occupancy 0.0\n$selsolute set occupancy 1.0\n'
-                        +'$selall writepdb molref.pdb\nquit vmd')
+        file_out.write("mol addfile mol_wb.pdb\n")
+        file_out.write('set selall [atomselect top "all"]\n')
+        file_out.write('set selsolute [atomselect top "segid MOL"]\n')
+        file_out.write("$selall set occupancy 0.0\n")  
+        file_out.write("$selsolute set occupancy 1.0\n")         
+        file_out.write("$selall writepdb molref.pdb\n")  
+        file_out.write("quit vmd")
         file_out.close()
 
         rest_cmds = "vmd -dispdev text -eofexit <mol_rest.tcl> temp.out 2> temp-error.out"
@@ -122,8 +139,25 @@ def rest_vmd():
 #creats colvar to restrain center of mass
 def rest_colvars():
         file_out = open('colvars.tcl', 'w')
-        file_out.write('colvar {\n\tname molcom\n\tdistance {\n\t\tgroup1 {\n\t\t\tatomsFile molref.pdb\n\t\t\tatomsCol O\n\t\t\tatomsColValue 1.0\n\t\t}\n\n\t\tgroup2 {\n\t\t\tdummyAtom (0.000, 0.000, 0.000)'
-                        +'\n\t\t}\n\t}\n}\n\nharmonic {\n\tname molrestcom\n\tcolvars molcom\n\tcenters 0.0\n\tforceConstant 5.0\n}')
+        file_out.write('colvar {\n')
+        file_out.write('\tname molcom\n')
+        file_out.write('\tdistance {\n')
+        file_out.write('\t\tgroup1 {\n')
+        file_out.write('\t\t\tatomsFile molref.pdb\n')
+        file_out.write('\t\t\tatomsCol O\n')
+        file_out.write('\t\t\tatomsColValue 1.0\n')
+        file_out.write('\t\t}\n\n')
+        file_out.write('\t\tgroup2 {\n')
+        file_out.write('\t\t\tdummyAtom (0.000, 0.000, 0.000)\n')
+        file_out.write('\t\t}\n')
+        file_out.write('\t}\n')
+        file_out.write('}\n\n')
+        file_out.write('harmonic {\n')
+        file_out.write('\tname molrestcom\n')
+        file_out.write('\tcolvars molcom\n')
+        file_out.write('\tcenters 0.0\n')
+        file_out.write('\tforceConstant 5.0\n')
+        file_out.write('}')
 
         file_out.close()
 
@@ -152,12 +186,22 @@ def namd_remd(option, file_extension,pdb_extension, num_processors):
                 os.mkdir(folder_out+'/%d' %i)
 
         job_out = open('job'+option+'.conf', 'w')
-        job_out.write('source mol_rep'+option+'.conf\n#prevents VMD from reading replica.namd by trying command only NAMD has\nif {! [catch numPes]} '+
-                '{source replica.namd}')
+        job_out.write('source mol_rep'+option+'.conf\n')
+        job_out.write('#prevents VMD from reading replica.namd by trying command only NAMD has\n')   
+        job_out.write('if {! [catch numPes]} {source replica.namd}')        
         job_out.close()
         conf_out = open('mol_rep'+option+'.conf', 'w')
-        conf_out.write('set num_replicas '+num_reps+'\nset min_temp 298\nset max_temp 500\nset steps_per_run 1000\nset num_runs '+num_runs+'\n\nset runs_per_frame 1\nset frames_per_restart 1\n'+
-                        'set namd_config_file "mol_rep'+option+'.namd"\nset output_root "'+folder_out+'/%s/mol";\n\nset psf_file "mol'+file_extension+'.psf"\nset pdb_file "mol'+pdb_extension+'.pdb"')
+        conf_out.write('set num_replicas '+num_reps+'\n')
+        conf_out.write('set min_temp 298\n"')
+        conf_out.write('set max_temp 500\n')
+        conf_out.write('set steps_per_run 1000\n')
+        conf_out.write('set num_runs '+num_runs+'\n\n')
+        conf_out.write('set runs_per_frame 1\n')
+        conf_out.write('set frames_per_restart 1\n')
+        conf_out.write('set namd_config_file "mol_rep'+option+'.namd"\n')
+        conf_out.write('set output_root "'+folder_out+'/%s/mol";\n\n')
+        conf_out.write('set psf_file "mol'+file_extension+'.psf"\n')
+        conf_out.write('set pdb_file "mol'+pdb_extension+'.pdb"')
         conf_out.close()
 
         remd_cmds =  "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 +replicas "+num_reps+" job"+option+".conf +stdout "+folder_out+"/%d/job0.%d.log >&job"+option+".out"
@@ -183,17 +227,32 @@ def vmd_cluster(option):
                 shutil.rmtree(conf_out)
         os.mkdir(conf_out)
         conf_file = open('mol_conf'+option+'.tcl', 'w')
-        conf_file.write('#creates pdb files for the clusters from the 1st replica\nfor {set i 0} {$i <= 4} {incr i} {\n set dcd "clusters'+option+'/cluster0.$i.dcd"\n set psf "mol.psf"\n'
-                        +' mol load psf $psf dcd $dcd\n set selconf [atomselect top "all"]\n $selconf writepdb conf'+option+'/cluster0.$i.pdb\n}\nexit')
+        conf_file.write('#creates pdb files for the clusters from the 1st replica\n')
+        conf_file.write('for {set i 0} {$i <= 4} {incr i} {\n')
+        conf_file_write(' set dcd "clusters'+option+'/cluster0.$i.dcd"\n')
+        conf_file.write(' set psf "mol.psf"\n')
+        conf_file.write(' mol load psf $psf dcd $dcd\n')
+        conf_file.write(' set selconf [atomselect top "all"]\n')
+        conf_file.write(' $selconf writepdb conf'+option+'/cluster0.$i.pdb\n')
+        conf_file.write('}\n')
+        conf_file_write('exit')
         conf_file.close()
 
         conf_cmds = "vmd -dispdev text -e mol_conf"+option+".tcl>conf.log"
         conf=subprocess.Popen(conf_cmds, shell=True).wait()
 
         rmsd_graph = open('mol_rmsdtt'+option+'.p', 'w')
-        rmsd_graph.write('set title "RMSD Trajectory"\nset xlabel "Frame"\nset ylabel "RMSD"\nunset key\nset terminal png size 800,600 enhanced font "Helvetica,10"\nset output "mol_rmsdtt'+option+'.png"\n'+
-                        'plot "mol_rmsdtt'+option+'.dat" using 1:2 title \'Replica One\' with lines,\\\n\t""\tusing 1:3 title \'Replica Two\' with lines,\\\n\t""\tusing 1:4 title \'Replica Three\' with lines,'+
-                        '\\\n\t""\tusing 1:5 title \'Replica Four\' with lines\n \nexit ')
+        rmsd_graph.write('set title "RMSD Trajectory"\n')
+        rmsd_graph.write('set xlabel "Frame"\n')
+        rmsd_graph.write('set ylabel "RMSD"\n')
+        rmsd_graph.write('unset key\n')
+        rmsd_graph.write('set terminal png size 800,600 enhanced font "Helvetica,10"\n')
+        rmsd_graph.write('set output "mol_rmsdtt'+option+'.png"\n')
+        rmsd_graph.write('plot "mol_rmsdtt'+option+'.dat" using 1:2 title \'Replica One\' with lines,\\\n')
+        rmsd_graph.write('\t""\tusing 1:3 title \'Replica Two\' with lines,\\\n')
+        rmsd_graph.write('\t""\tusing 1:4 title \'Replica Three\' with lines,\\\n')
+        rmsd_graph.write('\t""\tusing 1:5 title \'Replica Four\' with lines\n \n')
+        rmsd_graph.write('exit ')
         rmsd_graph.close()
 
         rmsd_cmds ="gnuplot>load 'mol_rmsdtt"+option+".p'"
@@ -202,8 +261,18 @@ def vmd_cluster(option):
 #determines RMSD of explict versus gas and gbis
 def calc_rmsd():
         all_rmsd_in = open('mol_rmsd_all.tcl', 'w')
-        all_rmsd_in.write('set outfile [open mol_rmsd_all.dat w]\nmol new conf/cluster0.0.pdb\nmol new conf_gas/cluster0.0.pdb\nmol new conf_gbis/cluster0.0.pdb\nfor {set i 0} {$i <=2} {incr i} {\n'+
-                        ' set mol$i [atomselect $i "all"]\n}\nfor {set j 1} {$j <=2} {incr j} {\n $mol0 move [measure fit $mol0 [set mol$j]]\n puts $outfile "RMSD:  [measure rmsd $mol0 [set mol$j]]"\n}\nexit')
+        all_rmsd_in.write('set outfile [open mol_rmsd_all.dat w]\n')
+        all_rmsd_in.write('mol new conf/cluster0.0.pdb\n')
+        all_rmsd_in.write('mol new conf_gas/cluster0.0.pdb\n')
+        all_rmsd_in.write('mol new conf_gbis/cluster0.0.pdb\n')
+        all_rmsd_in.write('for {set i 0} {$i <=2} {incr i} {\n')
+        all_rmsd_in.write(' set mol$i [atomselect $i "all"]\n')
+        all_rmsd_in.write('}\n')
+        all_rmsd_in.write('for {set j 1} {$j <=2} {incr j} {\n')
+        all_rmsd_in.write(' $mol0 move [measure fit $mol0 [set mol$j]]\n')
+        all_rmsd_in.write(' puts $outfile "RMSD:  [measure rmsd $mol0 [set mol$j]]"\n')
+        all_rmsd_in.write('}\n')
+        all_rmsd_in.write('exit')
         all_rmsd_in.close()
 
         all_rmsd_cmds = "vmd -dispdev text -e mol_rmsd_all.tcl>rmsd.out"
