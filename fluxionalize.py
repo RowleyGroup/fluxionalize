@@ -45,8 +45,9 @@ def genSubScript():
         pbs_lines=pbs_lines + '#PBS -j oe\n\n'
         pbs_lines=pbs_lines + 'cd ' + location + '\n\n'
         # edit lines to 
-        pbs_lines=pbs_lines + 'module load openbabel\nmodule load intel64/14.0.0.080\n'
-        pbs_lines=pbs_lines + 'module load openmpi_intel64/1.6.5_intel14\n'
+        pbs_lines=pbs_lines + 'module load openbabel\n'
+        pbs_lines=pbs_lines + 'module load intel64/14.0.0.080\n'                ##Version dependant on system##
+        pbs_lines=pbs_lines + 'module load openmpi_intel64/1.6.5_intel14\n'     ##Version dependant on system##
         pbs_lines=pbs_lines + 'module load amber\n'
         pbs_lines=pbs_lines + 'module load vmd64\n'
         pbs_lines=pbs_lines + 'module load namd/2.10\n\n'
