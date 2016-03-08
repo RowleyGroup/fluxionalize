@@ -1,0 +1,66 @@
+#NAMD Config file
+
+#input
+structure               mol.psf
+coordinates             mol.pdb
+
+paratypecharmm          on
+parameters              mol.prm
+
+#output
+set output              mol_gbis
+outputname              $output
+dcdfile                 ${output}.dcd
+xstFile                 ${output}.xst
+dcdfreq                 50
+xstFreq                 50
+
+binaryoutput            no
+binaryrestart           no
+outputEnergies          100
+restartfreq             1000
+
+fixedAtoms              off
+
+#Basic dynamics
+exclude                 scaled1-4
+1-4scaling              1
+COMmotion               no
+dielectric              1.0
+rigidbonds              all
+
+#GBIS parameters
+GBIS                    on
+ionConcentration        0.3
+alphaCutoff             14
+
+#Simulation space partitioning
+switching               on
+switchdist              15
+cutoff                  16
+pairlistdist            17.5
+
+#Multiple timestepping
+timestep                1
+nonbondedFreq           2
+fullElectFrequency      4
+
+#Temperature control
+set temperature         298
+temperature             $temperature;
+
+#Langevin dynamics
+langevin                on;
+langevinDamping         1;
+langevinTemp            $temperature;
+langevinHydrogen        no;
+seed                    12345
+
+#colvars
+colvars                 on
+colvarsConfig           colvars.tcl
+
+#Scripting
+minimize                1000
+reinitvels              $temperature
+run                     1000000
