@@ -1,9 +1,8 @@
 #! /usr/bin/tclsh
 
 set psf "mol_wb.psf"
-##Must set catdcd location either through whereis statement (example below), or manually##
-#set vmdloc "[exec whereis vmd]"
-#set catdcd "[string range $vmdloc 5 [string length $vmdloc]]-1.9/plugins/LINUXAMD64/bin/catdcd4.0/catdcd"
+##Must set catdcd location manually, see example below##
+set catdcd "/home/rowley_group/lib/vmd/plugins/LINUXAMD64/bin/catdcd5.1/catdcd"
 set outfile [open mol_cluster.dat w]
 set outfil2 [open mol_rmsdtt.dat w]
 set w1 7
