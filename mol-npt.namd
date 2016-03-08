@@ -1,0 +1,84 @@
+#NAMD Config file
+
+#input
+structure               mol_wb.psf
+coordinates             molref.pdb
+bincoordinates          mol-nvt.coor
+extendedSystem          mol-nvt.xsc
+
+paratypecharmm          on
+parameters              mol.prm
+parameters              mol_wb.prm
+margin                  2.5
+
+#output
+set output              mol-npt
+outputname              $output
+dcdfile                 ${output}.dcd
+xstFile                 ${output}.xst
+dcdfreq                 50
+xstFreq                 50
+
+binaryoutput            no
+binaryrestart           no
+outputEnergies          100
+restartfreq             1000
+
+fixedAtoms              off
+
+#Basic dynamics
+exclude                 scaled1-4
+1-4scaling              1
+COMmotion               no
+dielectric              1.0
+
+#Simulation space partitioning
+switching               on
+switchdist              9
+cutoff                  10
+pairlistdist            12
+
+#Multiple timestepping
+firsttimestep           0
+timestep                1
+stepspercycle           20
+nonbondedFreq           2
+fullElectFrequency      4
+
+#Temperature control
+set temperature         298
+temperature             $temperature;
+
+#Langevin dynamics
+langevin                on;
+langevinDamping         1;
+langevinTemp            $temperature;
+langevinHydrogen        no;
+seed                    12345
+
+#Pressure control
+langevinPiston          on
+langevinPistonTarget    1.01325;
+langevinPistonPeriod    2000
+langevinPistonDecay     100
+langevinPistonTemp      $temperature
+useFlexibleCell         no
+useGroupPressure        no
+fixedAtomsForces        off
+
+#PME
+PME yes
+PMEGridSpacing 1.0
+
+#PBC
+wrapALL                 on
+dcdUnitCell             yes
+
+#colvars
+colvars                 on
+colvarsConfig           colvars.tcl
+
+#Scripting
+minimize                1000
+reinitvels              $temperature
+run                     100000
