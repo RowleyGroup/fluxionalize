@@ -162,6 +162,7 @@ def rest_colvars():
         file_out.close()
 
 #calls namd for reg
+##mpirun location may change depending on system##
 def call_namd_exp(option, num_processors):
         namd_cmds = "/opt/openmpi/1.4.5/gcc/bin/mpirun -np "+num_processors+" namd2 mol"+option+"-nvt.namd >mol"+option+"-nvt.out"
         namd=subprocess.Popen(namd_cmds, shell=True).wait()
