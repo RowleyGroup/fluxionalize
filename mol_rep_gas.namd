@@ -1,0 +1,30 @@
+#NAMD Config file
+
+#input
+structure               mol.psf
+coordinates             mol_gas.coor
+
+paratypecharmm          on
+parameters              mol.prm
+
+#Basic dynamics
+exclude                 scaled1-4
+1-4scaling              1
+
+#Simulation space partitioning
+switching               on
+switchdist              9
+cutoff                  10
+pairlistdist            12
+
+#Multiple timestepping
+timestep                1
+stepspercycle           20
+
+#Langevin dynamics
+langevin                on;
+langevinDamping         2;
+
+#colvars
+colvars                 on
+colvarsConfig           colvars.tcl
