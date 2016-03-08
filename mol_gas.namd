@@ -1,0 +1,63 @@
+#NAMD Config file
+
+#input
+structure               mol.psf
+coordinates             mol.pdb
+
+paratypecharmm          on
+parameters              mol.prm
+
+#output
+set output              mol_gas
+outputname              $output
+dcdfile                 ${output}.dcd
+xstFile                 ${output}.xst
+dcdfreq                 50
+xstFreq                 50
+
+binaryoutput            no
+binaryrestart           no
+outputEnergies          100
+restartfreq             1000
+
+fixedAtoms              off
+
+#Basic dynamics
+exclude                 scaled1-4
+1-4scaling              1
+COMmotion               no
+dielectric              1.0
+rigidBonds              all
+
+#Simulation space partitioning
+switching               on
+switchdist              9
+cutoff                  10
+pairlistdist            12
+
+#Multiple timestepping
+firsttimestep           0
+timestep                1
+stepspercycle           20
+nonbondedFreq           2
+fullElectFrequency      4
+
+#Temperature control
+set temperature         298
+temperature             $temperature;
+
+#Langevin dynamics
+langevin                on;
+langevinDamping         1;
+langevinTemp            $temperature;
+langevinHydrogen        no;
+seed                    12345
+
+#colvars
+colvars                 on
+colvarsConfig           colvars.tcl
+
+#Scripting
+minimize                1000
+reinitvels              $temperature
+run                     1000000
