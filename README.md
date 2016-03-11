@@ -15,9 +15,9 @@ All of the files in this repository besides fluxionalize.py and flux.py should b
  is used, then that location will have to be changed in flux.py.
  
 Files to Edit:
-    mol_cluster files         the catdcd location will have to be specified (line 3)
+    mol_cluster files         the catdcd location will have to be specified (line 5)
     
 
 Files to Check:
-    fluxionalize.py           check modules: intel64, openmpi. check version: namd
-    flux.py                   check mpirun location, set to default
+    fluxionalize.py           check modules: intel64 (line 49), openmpi (line 50). check version: namd (line 53)
+    flux.py                   check mpirun location (line 165), set to default
