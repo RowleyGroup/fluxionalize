@@ -1,4 +1,5 @@
-#! /usr/bin/tclsh                                                                                        
+#! /usr/bin/tclsh    
+
 set psf "mol.psf"
 ###Must set catdcd by hand, example below###
 set catdcd "/home/rowley_group/lib/vmd/plugins/LINUXAMD64/bin/catdcd5.1/catdcd"                          
